@@ -76,3 +76,18 @@ def get_sma(symbol, num_periods=12, period_magnitude=6):  # default = 12 x 64min
     # (unix_now, num_periods, period_magnitude, sma)  # save to datastore and/or cache
 
     return sma
+
+
+def sma(client, datastore_entity, timestamp):
+
+    content = datastore_entity['content']
+    channel = datastore_entity['channel']
+    result = json.loads(content.replace("'", "\""))
+
+    # connection to datastore already provided
+    # client = datastore.Client()
+
+    for symbol_pair, price_data in result.items():
+
+        if symbol_pair[0:4] == "BTC_":
+            symbol = symbol_pair[4:]

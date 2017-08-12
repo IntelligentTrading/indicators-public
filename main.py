@@ -1,9 +1,10 @@
 """ Intelligent Trading Indicators App """
 import os
 from logging import basicConfig, INFO
-from telegram.ext import Updater, CommandHandler, MessageHandler, Filters
 from google.cloud import datastore
+from google.cloud import pubsub
 from indicators import price, sma, ema
+
 
 basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
             level=INFO)
@@ -24,7 +25,6 @@ tier_2_indicators = [
 
 
 def refresh_indicator(indicator_function):
-
     client = datastore.Client()
     query = client.query(kind='Channels')
     # query.add_filter('channel', '=', channel)
@@ -36,7 +36,7 @@ def refresh_indicator(indicator_function):
         indicator_function(client, datastore_entity, timestamp)
 
 
-def update_indicators(indicator_list, channel="Poloniex"):
+def update_indicators(indicator_list, channel="Poloniex", refresh=False):
 
     # query database for latest price data
     client = datastore.Client()
@@ -47,9 +47,15 @@ def update_indicators(indicator_list, channel="Poloniex"):
 
     timestamp = datastore_entity['timestamp']
 
-    # send to all indicator processors
-    for indicator_function in indicator_list:
-        indicator_function(client, datastore_entity, timestamp)
+    if refresh:
+        # refresh all indicator data
+        for indicator_function in indicator_list:
+            refresh_indicator(indicator_function)
+
+    else:
+        # send to all indicator processors
+        for indicator_function in indicator_list:
+            indicator_function(client, datastore_entity, timestamp)
 
 
 def main():
@@ -58,7 +64,42 @@ def main():
     # todo: subscribe to new Poloniex datastore entities
 
     try:
-        update_indicators(tier_1_indicators)
+        from google.cloud import pubsub
+        client = pubsub.Client()
+        topic = client.topic('indicators-topic')
+        assert topic.exists()
+        subscription = client.subscription('public-indicators-subscription')
+        assert subscription.exists()
+
+        # while True:
+        while True:
+            ack_id, message = subscription.pull(max_messages=1)[0]
+
+            try:
+                message = message.data.decode()
+                print(message)
+
+                refresh = ("new" not in message and "refresh" in message)
+
+                if "Poloniex" in message:
+                    if "data" in message:
+                        update_indicators(tier_1_indicators, channel="Poloniex", refresh=refresh)
+                        update_indicators(tier_2_indicators, channel="Poloniex", refresh=refresh)
+
+                # elif "Bittrex" in message:
+                #     if "data" in message:
+                #         update_indicators(tier_1_indicators, channel="Bittrex", refresh=refresh)
+                #         update_indicators(tier_2_indicators, channel="Bittrex", refresh=refresh)
+
+            except AttributeError as e:
+                print(str(e))
+                subscription.acknowledge([ack_id])
+
+            except Exception as e:
+                print(str(e))
+
+            else:
+                subscription.acknowledge([ack_id])
 
     except Exception as e:
         print(str(e))

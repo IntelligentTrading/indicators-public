@@ -2,7 +2,7 @@ from google.cloud import datastore
 import simplejson as json
 
 
-def store_prices(client, datastore_entity, timestamp):
+def price(client, datastore_entity, timestamp):
 
     content = datastore_entity['content']
     channel = datastore_entity['channel']

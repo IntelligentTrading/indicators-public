@@ -13,7 +13,7 @@ basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
 # Tier 1 indicators have no dependencies
 # They can run directly over the raw data from data sources
 tier_1_indicators = [
-    price.store_prices,
+    price.price,
 ]
 
 # Tier 2 indicators have one or more dependaencies on Tier 1 indicaotrs

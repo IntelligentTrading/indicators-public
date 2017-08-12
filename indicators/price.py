@@ -41,4 +41,5 @@ def store_prices(client, datastore_entity, timestamp):
             # print(entity)
             client.put(entity)
 
+    print("saved prices for timestamp: %d" % timestamp)
     return True

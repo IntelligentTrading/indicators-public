@@ -73,33 +73,42 @@ def main():
 
         # while True:
         while True:
-            ack_id, message = subscription.pull(max_messages=1)[0]
+            pulled = subscription.pull(max_messages=2)
+            for ack_id, message in pulled:
 
-            try:
-                message = message.data.decode()
-                print(message)
+                try:
+                    message = message.data.decode()
+                    print(message)
 
-                refresh = ("new" not in message and "refresh" in message)
+                    refresh = ("new" not in message and "refresh" in message)
 
-                if "Poloniex" in message:
-                    if "data" in message:
-                        update_indicators(tier_1_indicators, channel="Poloniex", refresh=refresh)
-                        update_indicators(tier_2_indicators, channel="Poloniex", refresh=refresh)
+                    if "Poloniex" in message:
+                        if "data" in message:
+                            update_indicators(tier_1_indicators,
+                                              channel="Poloniex",
+                                              refresh=refresh)
+                            update_indicators(tier_2_indicators,
+                                              channel="Poloniex",
+                                              refresh=refresh)
 
-                # elif "Bittrex" in message:
-                #     if "data" in message:
-                #         update_indicators(tier_1_indicators, channel="Bittrex", refresh=refresh)
-                #         update_indicators(tier_2_indicators, channel="Bittrex", refresh=refresh)
+                    # elif "Bittrex" in message:
+                    #     if "data" in message:
+                    #         update_indicators(tier_1_indicators,
+                    #                           channel="Bittrex",
+                    #                           refresh=refresh)
+                    #         update_indicators(tier_2_indicators,
+                    #                           channel="Bittrex",
+                    #                           refresh=refresh)
 
-            except AttributeError as e:
-                print(str(e))
-                subscription.acknowledge([ack_id])
+                except AttributeError as e:
+                    print(str(e))
+                    subscription.acknowledge([ack_id])
 
-            except Exception as e:
-                print(str(e))
+                except Exception as e:
+                    print(str(e))
 
-            else:
-                subscription.acknowledge([ack_id])
+                else:
+                    subscription.acknowledge([ack_id])
 
     except Exception as e:
         print(str(e))

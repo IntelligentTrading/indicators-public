@@ -3,41 +3,73 @@ import simplejson as json
 import math
 
 
-
 def price_average(client, datastore_entity, timestamp):
 
     content = datastore_entity['content']
     channel = datastore_entity['channel']
-    result = json.loads(content.replace("'", "\""))
 
-    for symbol_pair, price_data in result.items():
+    # check which symbols have new prices
+    symbol_query = client.query(kind='Indicators')
+    symbol_query.add_filter('timestamp', '=', timestamp)
+    symbol_query.projection = ['channel', 'symbol']
+    symbol_entity_list = list(symbol_query.fetch())
 
-        if symbol_pair[0:4] == "BTC_":
-            symbol = symbol_pair[4:]
+    #get history for calculating all averages
+    num_seconds_of_history = 60 * math.pow(2, 11)
+    price_query = client.query(kind='Indicators')
+    price_query.add_filter('timestamp', '>=', (timestamp - num_seconds_of_history))
+    price_query.projection = ['symbol', 'value', 'timestamp']
+    price_query.order = ['timestamp']
+    price_entity_list = list(price_query.fetch())
 
-            num_seconds_of_history = 60 * math.pow(2, 11)
-            query = client.query(kind='Indicators')
-            # query.add_filter('channel', '=', channel)
-            query.add_filter('symbol', '=', symbol)
-            query.add_filter('timestamp', '>=', (timestamp - num_seconds_of_history))
-            query.order = ['timestamp']
+    for symbol_entity in symbol_entity_list:
 
-
-def calc_averages_list(symbol_entity_list):
-
-    pass
+        averages = calc_averages_list(symbol_entity['symbol'], price_entity_list)
 
 
-from google.cloud import datastore
-client = datastore.Client()
-query = client.query(kind='Indicators')
-query.add_filter('ilk', '=', 'price')
-symbol = "GNO"
-query.add_filter('symbol', '=', symbol)
-timestamp = 1502375580
-import math
-num_seconds_of_history = 60 * math.pow(2, 11)
-query.add_filter('timestamp', '>=', (timestamp - num_seconds_of_history))
-query.order = ['-timestamp']
-entity_list = list(query.fetch())
+        averages_entity = datastore.Entity(key=client.key('Indicators'))
+        averages_entity.update({
+            'ilk': 'average',
+            'symbol': symbol_entity['symbol'],
+            'value': averages,
+            'timestamp': timestamp,
+            'channel': symbol_entity['channel'],
+        })
+        client.put(averages_entity)
 
+
+def calc_averages_list(symbol, price_entity_list, now_timestamp):
+
+    #convert price_entity_list to list of integers
+
+    # create dict for averages
+    minute_sizes = range(2,12)
+    averages = {minute_size: (0,0) for minute_size in minute_sizes}
+
+    # for each data from the database
+    for price_entity in price_entity_list:
+
+        # check that matches the correct symbol
+        if price_entity['symbol'] == symbol:
+
+            # for each period size to calculate
+            for minute_size in minute_sizes:
+
+                # if timestamp is within the period
+                if (now_timestamp - price_entity['timestamp']) <= (minute_size * 60):
+
+                    # update average by adding new price
+                    average_price = (
+                        (averages[minute_size][1] * averages[minute_size][0]) +
+                            price_entity['value']
+                        ) / (
+                            averages[minute_size][1] + 1
+                        )
+
+                    averages[minute_size] = (int(average_price),
+                                             averages[minute_size][1] + 1)
+
+    return {
+        minute_size: int(average_price)
+        for (minute_size, (average_price, weight)) in averages
+    }

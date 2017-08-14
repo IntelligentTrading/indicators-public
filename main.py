@@ -43,9 +43,10 @@ def update_indicators(indicator_list, channel="Poloniex", refresh=False):
     query = client.query(kind='Channels')
     # query.add_filter('channel', '=', channel)
     query.order = ['-timestamp']
-    datastore_entity = list(query.fetch(limit=1))[0]
-
-    timestamp = datastore_entity['timestamp']
+    datastore_entities = list(query.fetch(limit=1))
+    
+    for datastore_entity in datastore_entities:
+        timestamp = datastore_entity['timestamp']
 
     if refresh:
         # refresh all indicator data

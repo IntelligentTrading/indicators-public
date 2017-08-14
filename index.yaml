@@ -1,6 +1,7 @@
 indexes:
 
 - kind: Channels
+  ancestor: no
   properties:
   - name: channel
   - name: types
@@ -8,6 +9,7 @@ indexes:
     direction: desc
 
 - kind: Indicators
+  ancestor: no
   properties:
   - name: channel
   - name: ilk
